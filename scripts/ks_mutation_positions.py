@@ -26,7 +26,7 @@ def resolve_data_dir(cli_value: Path | None) -> Path:
     env = os.environ.get("ANDV_DATA_DIR")
     if env:
         return Path(env).expanduser().resolve()
-    return (PKG_ROOT / ".." / "hantavirus" / "Alingments Piet" / "analyses" / "06_v5_label_aln").resolve()
+    return (PKG_ROOT / ".." / "hantavirus" / "Alignment" / "analyses" / "06_v5_label_aln").resolve()
 
 
 def short_name(r: pd.Series) -> str:

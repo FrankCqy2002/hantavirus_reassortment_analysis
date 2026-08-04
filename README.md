@@ -20,9 +20,9 @@ Dependencies are in `pyproject.toml`; `uv.lock` pins versions.
 Point `--data-dir` at the **06_v5_label_aln** analysis directory, or set
 `ANDV_DATA_DIR`. Default if unset:
 
-`../hantavirus/Alingments Piet/analyses/06_v5_label_aln`
+`../hantavirus/Alignment/analyses/06_v5_label_aln`
 
-(i.e. `/mnt/storage/qc2358/hantavirus/Alingments Piet/analyses/06_v5_label_aln`).
+(i.e. `/mnt/storage/qc2358/hantavirus/Alignment/analyses/06_v5_label_aln`).
 
 Required for `--scope full`:
 
@@ -65,7 +65,7 @@ outputs (binomial scatters, sliding-window panels, KS tables)
 are git-tracked under `results/`.
 
 ```bash
-export ANDV_DATA_DIR="/mnt/storage/qc2358/hantavirus/Alingments Piet/analyses/06_v5_label_aln"
+export ANDV_DATA_DIR="/mnt/storage/qc2358/hantavirus/Alignment/analyses/06_v5_label_aln"
 
 # Pairwise S/M/L scatters (Clade III) — underlies binomial publication panels
 # Tracked: results/segment_distance_scatter/CladeIII_pairwise_{S_vs_M,S_vs_L,M_vs_L}_binomial_publication.png
@@ -100,7 +100,7 @@ uv run python scripts/ks_mutation_positions.py \
 
 | Parameter | Default | Meaning |
 |-----------|---------|---------|
-| `--data-dir` | `ANDV_DATA_DIR` or `../hantavirus/Alingments Piet/analyses/06_v5_label_aln` | Root with v5 alignments and metadata |
+| `--data-dir` | `ANDV_DATA_DIR` or `../hantavirus/Alignment/analyses/06_v5_label_aln` | Root with v5 alignments and metadata |
 | `--out-dir` | script-specific under `results/` | Where PNG/CSV outputs are written |
 | `--scope` | see below | `full` = all v5 tips; `cladeIII` = Clade III subset |
 
