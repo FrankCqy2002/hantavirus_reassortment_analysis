@@ -15,20 +15,32 @@ uv sync
 
 Dependencies are in `pyproject.toml`; `uv.lock` pins versions.
 
-## Data layout
+## Data required
 
-Default `--data-dir` / `ANDV_DATA_DIR` for Clade III publication analyses:
+Point `--data-dir` at the **06_v5_label_aln** analysis directory, or set
+`ANDV_DATA_DIR`. Default if unset:
 
-`/mnt/storage/qc2358/hantavirus/Alingments Piet/analyses/06_v5_label_aln`
+`../hantavirus/Alingments Piet/analyses/06_v5_label_aln`
 
-Expected under that directory:
+(i.e. `/mnt/storage/qc2358/hantavirus/Alingments Piet/analyses/06_v5_label_aln`).
 
-- `metadata/andv_attributes_v5.csv` and `alignments/{S,M,L}_v5_label_aln.fasta` (`--scope full`)
-- `clade_III/metadata/clade_III_attributes_v5.csv` and
-  `clade_III/alignments/{S,M,L}_cladeIII_v5.fasta` (`--scope cladeIII`)
+Required for `--scope full`:
 
-See `data/README.md` for details. Outputs go under `--out-dir` (defaults under
-`results/`). **Tracked publication figures and tables are already in `results/`.**
+- `metadata/andv_attributes_v5.csv`
+- `alignments/S_v5_label_aln.fasta`
+- `alignments/M_v5_label_aln.fasta`
+- `alignments/L_v5_label_aln.fasta`
+
+Required for `--scope cladeIII` (publication examples):
+
+- `clade_III/metadata/clade_III_attributes_v5.csv`
+- `clade_III/alignments/S_cladeIII_v5.fasta`
+- `clade_III/alignments/M_cladeIII_v5.fasta`
+- `clade_III/alignments/L_cladeIII_v5.fasta`
+
+Do not commit large FASTA/CSV datasets into this repo. Outputs go under
+`--out-dir` (defaults under `results/`). **Tracked publication figures and
+tables are already in `results/`.**
 
 ## Methods (brief)
 
@@ -158,6 +170,5 @@ Outputs: `mutation_positions_KS_vs_uniform_all_pairs.csv` and a short README txt
 | `scripts/plot_sliding_window_pdist.py` | Pairwise sliding-window p-distance plots |
 | `scripts/ks_sliding_window.py` | KS of window p-distances vs Uniform |
 | `scripts/ks_mutation_positions.py` | KS of mutation positions vs Uniform |
-| `data/` | Placeholder; real inputs via `--data-dir` |
 | `results/` | Publication figures/tables (**git-tracked**) |
 | `.venv/` | Local virtualenv (gitignored; `uv sync`) |
