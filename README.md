@@ -17,13 +17,6 @@ Dependencies are in `pyproject.toml`; `uv.lock` pins versions.
 
 ## Data required
 
-Point `--data-dir` at the **06_v5_label_aln** analysis directory, or set
-`ANDV_DATA_DIR`. Default if unset:
-
-`../hantavirus/Alignment/analyses/06_v5_label_aln`
-
-(i.e. `/mnt/storage/qc2358/hantavirus/Alignment/analyses/06_v5_label_aln`).
-
 Required for `--scope full`:
 
 - `metadata/andv_attributes_v5.csv`
@@ -38,16 +31,15 @@ Required for `--scope cladeIII` (publication examples):
 - `clade_III/alignments/M_cladeIII_v5.fasta`
 - `clade_III/alignments/L_cladeIII_v5.fasta`
 
-Do not commit large FASTA/CSV datasets into this repo. Outputs go under
-`--out-dir` (defaults under `results/`). **Tracked publication figures and
-tables are already in `results/`.**
-
 ## Methods (brief)
 
-### Pairwise segment distance scatter
-For every tip pair, compute observed p-distance on S, M, and L (ignoring gap/N
-sites). Plot S vs M, M vs L, and S vs L. Points off the y=x diagonal have
-segment-incongruent distances (possible reassortment signal).
+### Pairwise segment distance scatter (binomial λ test)
+For every tip pair, compute mutation counts and comparable-site opportunities
+on S, M, and L. Fit a conditional binomial rate-ratio λ
+(*Y<sub>Y</sub>* | *T* ~ Binomial(*T*, π), π = λ *E<sub>Y</sub>* / (*E<sub>X</sub>* + λ *E<sub>Y</sub>*))
+on pairs with expected count *T*π > `--mu-min`. Test each pair with a normal
+approximation Z-test; apply Benjamini–Hochberg FDR at `--fdr-alpha`.
+Publication panels show *y* = λ*x* with BH-significant points in red.
 
 ### Sliding-window p-distance
 Along comparable (non-gap/N) sites, slide a window (default 100 nt, step 10)
@@ -62,26 +54,30 @@ mutations. Ranked by L-segment KS *D* (requires ≥ `--min-mut` L mutations).
 
 Publication examples use the **06_v5_label_aln** Clade III data. Publication
 outputs (binomial scatters, sliding-window panels, KS tables)
-are git-tracked under `results/`.
+are under `results/`.
 
 ```bash
 export ANDV_DATA_DIR="/mnt/storage/qc2358/hantavirus/Alignment/analyses/06_v5_label_aln"
 
-# Pairwise S/M/L scatters (Clade III) — underlies binomial publication panels
-# Tracked: results/segment_distance_scatter/CladeIII_pairwise_{S_vs_M,S_vs_L,M_vs_L}_binomial_publication.png
+# Pairwise S/M/L binomial publication scatters (Clade III)
+# Tracked PNGs: results/segment_distance_scatter/CladeIII_pairwise_{S_vs_M,S_vs_L,M_vs_L}_binomial_publication.png
+# (CSVs are gitignored; regenerate with this script)
 uv run python scripts/plot_pairwise_segment_distance_scatter.py \
   --scope cladeIII --data-dir "$ANDV_DATA_DIR" \
-  --out-dir results/segment_distance_scatter
+  --out-dir results/segment_distance_scatter \
+  --mu-min 20 --fdr-alpha 0.05
 
 # Sliding window: p1236 vs p1239 (window 100, step 10)
-# Tracked: results/sliding_window/p1236_vs_p1239_sliding_window_pdist_publication.*
+# Tracked PNG: results/sliding_window/p1236_vs_p1239_sliding_window_pdist_publication.png
+# (CSV is gitignored; regenerate with this script)
 uv run python scripts/plot_sliding_window_pdist.py \
   --seq-a p1236 --seq-b p1239 \
   --window 100 --step 10 --scope cladeIII \
   --data-dir "$ANDV_DATA_DIR" --out-dir results/sliding_window
 
 # Sliding window: p1059 vs NRC-4/18 (window 100, step 10)
-# Tracked: results/sliding_window/p1059_vs_NRC-4-18_sliding_window_pdist_publication.*
+# Tracked PNG: results/sliding_window/p1059_vs_NRC-4-18_sliding_window_pdist_publication.png
+# (CSV is gitignored; regenerate with this script)
 uv run python scripts/plot_sliding_window_pdist.py \
   --seq-a p1059 --seq-b "NRC-4/18" \
   --window 100 --step 10 --scope cladeIII \
@@ -93,6 +89,7 @@ uv run python scripts/ks_mutation_positions.py \
   --scope cladeIII --min-mut 20 \
   --data-dir "$ANDV_DATA_DIR" --out-dir results/KS
 ```
+
 
 ## Parameters
 
@@ -106,19 +103,21 @@ uv run python scripts/ks_mutation_positions.py \
 
 ### `plot_pairwise_segment_distance_scatter.py`
 
-All tip pairs → S/M/L p-distances → scatter panels (no reference isolate).
+All tip pairs → mutation counts / opportunities → conditional binomial λ test →
+publication scatters.
 
 | Parameter | Default | Meaning |
 |-----------|---------|---------|
 | `--scope` | `cladeIII` | Tip set for pairwise comparisons |
-| `--highlight` | `p1236` | Substrings matching either tip of a pair → blue highlight (can pass several) |
-| `--exclude` | _(none)_ | Substrings of tips to drop before computing pairs |
-| `--combined-only` | off | Write only the 3-panel figure (skip per-panel S–M / M–L / S–L PNGs) |
+| `--exclude` | _(none)_ | Tips to drop before any pairwise comparisons |
+| `--mu-min` | `20` | Minimum expected Y count *T*π for λ fit and BH testing |
+| `--fdr-alpha` | `0.05` | Benjamini–Hochberg FDR threshold (significant if *q* < alpha) |
 
-Cruise-ship pairs are always colored red; HHPC tips use diamond markers.
-Outputs: `{scope}_pairwise_segment_pdist.csv` and scatter PNG.
-Tracked binomial publication panels + lambda-test CSVs live under
-`results/segment_distance_scatter/`.
+Outputs: `{prefix}_pairwise_segment_pdist.csv`,
+`{prefix}_{X}_vs_{Y}_lambda_binomial_test.csv`, and
+`{prefix}_pairwise_{X}_vs_{Y}_binomial_publication.png`.
+Publication PNGs under `results/segment_distance_scatter/` are tracked;
+CSVs there are gitignored (regenerate with this script).
 
 ### `plot_sliding_window_pdist.py`
 
@@ -132,6 +131,8 @@ Tracked binomial publication panels + lambda-test CSVs live under
 | `--per-segment` | off | Also write separate S, M, L single-panel figures |
 
 Outputs: `{A}_vs_{B}_sliding_window_pdist.{png,csv}` (+ optional `_*_{S,M,L}.*`).
+Publication PNGs under `results/sliding_window/` are tracked; CSVs are
+gitignored (regenerate with this script).
 
 ### `ks_mutation_positions.py`
 
@@ -150,5 +151,4 @@ Outputs: `mutation_positions_KS_vs_uniform_all_pairs.csv` and a short README txt
 | `scripts/plot_pairwise_segment_distance_scatter.py` | All-pairs S/M/L p-distance scatters |
 | `scripts/plot_sliding_window_pdist.py` | Pairwise sliding-window p-distance plots |
 | `scripts/ks_mutation_positions.py` | KS of mutation positions vs Uniform |
-| `results/` | Publication figures/tables (**git-tracked**) |
-| `.venv/` | Local virtualenv (gitignored; `uv sync`) |
+| `results/` | Publication PNGs + KS CSV (segment_distance_scatter / sliding_window CSVs gitignored) |
