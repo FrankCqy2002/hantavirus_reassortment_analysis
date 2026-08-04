@@ -176,7 +176,6 @@ def main() -> None:
             fig_s.tight_layout()
             stem_s = f"{slug(lab_a)}_vs_{slug(lab_b)}_sliding_window_pdist_{seg}"
             fig_s.savefig(outdir / f"{stem_s}.png", dpi=300, bbox_inches="tight")
-            fig_s.savefig(outdir / f"{stem_s}.pdf", bbox_inches="tight")
             plt.close(fig_s)
 
     stem = f"{slug(lab_a)}_vs_{slug(lab_b)}_sliding_window_pdist"
@@ -190,10 +189,9 @@ def main() -> None:
     )
     fig.tight_layout()
     fig.savefig(outdir / f"{stem}.png", dpi=300, bbox_inches="tight")
-    fig.savefig(outdir / f"{stem}.pdf", bbox_inches="tight")
     plt.close(fig)
     pd.concat(all_rows, ignore_index=True).to_csv(outdir / f"{stem}.csv", index=False)
-    print(f"Wrote {outdir / stem}.png / .pdf / .csv")
+    print(f"Wrote {outdir / stem}.png / .csv")
 
 
 if __name__ == "__main__":

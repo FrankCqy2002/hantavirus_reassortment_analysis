@@ -272,9 +272,8 @@ def main() -> None:
             fig.tight_layout()
             stem = f"{stem_prefix}_pairwise_{xseg}_vs_{yseg}_scatter"
             fig.savefig(out_dir / f"{stem}.png", dpi=300, bbox_inches="tight")
-            fig.savefig(out_dir / f"{stem}.pdf", bbox_inches="tight")
             plt.close(fig)
-            print(f"Wrote {out_dir / stem}.png / .pdf")
+            print(f"Wrote {out_dir / stem}.png")
 
     fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.4))
     for ax, (xseg, yseg) in zip(axes, [("S", "M"), ("M", "L"), ("S", "L")]):
@@ -291,9 +290,8 @@ def main() -> None:
     fig.tight_layout()
     stem = f"{stem_prefix}_pairwise_S_M_L_scatter"
     fig.savefig(out_dir / f"{stem}.png", dpi=300, bbox_inches="tight")
-    fig.savefig(out_dir / f"{stem}.pdf", bbox_inches="tight")
     plt.close(fig)
-    print(f"Wrote {out_dir / stem}.png / .pdf")
+    print(f"Wrote {out_dir / stem}.png")
 
 
 if __name__ == "__main__":

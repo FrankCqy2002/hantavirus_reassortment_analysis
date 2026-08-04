@@ -54,14 +54,14 @@ mutations. Ranked by L-segment KS *D* (requires ≥ `--min-mut` L mutations).
 ## Usage
 
 Publication examples use the **06_v5_label_aln** Clade III data. Publication
-outputs (binomial scatters, sliding-window panels, KS tables, figure legends)
+outputs (binomial scatters, sliding-window panels, KS tables)
 are git-tracked under `results/`.
 
 ```bash
 export ANDV_DATA_DIR="/mnt/storage/qc2358/hantavirus/Alingments Piet/analyses/06_v5_label_aln"
 
 # Pairwise S/M/L scatters (Clade III) — underlies binomial publication panels
-# Tracked: results/segment_distance_scatter/CladeIII_pairwise_{S_vs_M,S_vs_L,M_vs_L}_binomial_publication.{png,pdf,svg}
+# Tracked: results/segment_distance_scatter/CladeIII_pairwise_{S_vs_M,S_vs_L,M_vs_L}_binomial_publication.png
 uv run python scripts/plot_pairwise_segment_distance_scatter.py \
   --scope cladeIII --data-dir "$ANDV_DATA_DIR" \
   --out-dir results/segment_distance_scatter
@@ -91,9 +91,6 @@ uv run python scripts/ks_sliding_window.py \
   --input-dir results/sliding_window --out-dir results/tables
 ```
 
-Also see `results/FIGURE_LEGENDS_AND_METHODS.md` for publication figure legends
-and methods text.
-
 ## Parameters
 
 ### Shared
@@ -101,7 +98,7 @@ and methods text.
 | Parameter | Default | Meaning |
 |-----------|---------|---------|
 | `--data-dir` | `ANDV_DATA_DIR` or `../hantavirus/Alingments Piet/analyses/06_v5_label_aln` | Root with v5 alignments and metadata |
-| `--out-dir` | script-specific under `results/` | Where PNG/PDF/CSV outputs are written |
+| `--out-dir` | script-specific under `results/` | Where PNG/CSV outputs are written |
 | `--scope` | see below | `full` = all v5 tips; `cladeIII` = Clade III subset |
 
 ### `plot_pairwise_segment_distance_scatter.py`
@@ -116,7 +113,7 @@ All tip pairs → S/M/L p-distances → scatter panels (no reference isolate).
 | `--combined-only` | off | Write only the 3-panel figure (skip per-panel S–M / M–L / S–L PNGs) |
 
 Cruise-ship pairs are always colored red; HHPC tips use diamond markers.
-Outputs: `{scope}_pairwise_segment_pdist.csv` and scatter PNG/PDF.
+Outputs: `{scope}_pairwise_segment_pdist.csv` and scatter PNG.
 Tracked binomial publication panels + lambda-test CSVs live under
 `results/segment_distance_scatter/`.
 
@@ -131,7 +128,7 @@ Tracked binomial publication panels + lambda-test CSVs live under
 | `--scope` | `full` | Which alignment/metadata set to load |
 | `--per-segment` | off | Also write separate S, M, L single-panel figures |
 
-Outputs: `{A}_vs_{B}_sliding_window_pdist.{png,pdf,csv}` (+ optional `_*_{S,M,L}.*`).
+Outputs: `{A}_vs_{B}_sliding_window_pdist.{png,csv}` (+ optional `_*_{S,M,L}.*`).
 
 ### `ks_sliding_window.py`
 
