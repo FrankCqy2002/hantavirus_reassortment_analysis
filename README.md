@@ -53,11 +53,6 @@ segment-incongruent distances (possible reassortment signal).
 Along comparable (non-gap/N) sites, slide a window (default 100 nt, step 10)
 and plot differences / window size for S/M/L for one isolate pair.
 
-### Sliding-window KS test
-For each `*_sliding_window_pdist.csv`, test whether window p-distances follow
-**Uniform(0, max)** (primary) or Uniform(min, max) (secondary). Larger KS *D*
-⇒ stronger departure from a flat window-distance profile.
-
 ### Mutation-position KS test
 For all tip pairs, collect substitution coordinates among comparable sites and
 test against **Uniform(0, n_comparable)**. Larger *D* / smaller *p* ⇒ clustered
@@ -97,10 +92,6 @@ uv run python scripts/plot_sliding_window_pdist.py \
 uv run python scripts/ks_mutation_positions.py \
   --scope cladeIII --min-mut 20 \
   --data-dir "$ANDV_DATA_DIR" --out-dir results/KS
-
-# Optional: KS on sliding-window CSVs
-uv run python scripts/ks_sliding_window.py \
-  --input-dir results/sliding_window --out-dir results/tables
 ```
 
 ## Parameters
@@ -142,16 +133,6 @@ Tracked binomial publication panels + lambda-test CSVs live under
 
 Outputs: `{A}_vs_{B}_sliding_window_pdist.{png,csv}` (+ optional `_*_{S,M,L}.*`).
 
-### `ks_sliding_window.py`
-
-| Parameter | Default | Meaning |
-|-----------|---------|---------|
-| `--input-dir` | _(required)_ | Directory of `*_sliding_window_pdist.csv` files |
-| `--out-dir` | `results/tables` | KS summary tables |
-
-Primary test: window p-distances ~ Uniform(0, observed max) per segment.
-Outputs: `sliding_window_KS_vs_uniform.csv` (+ `_full.csv` with extra columns).
-
 ### `ks_mutation_positions.py`
 
 | Parameter | Default | Meaning |
@@ -168,7 +149,6 @@ Outputs: `mutation_positions_KS_vs_uniform_all_pairs.csv` and a short README txt
 | `pyproject.toml` / `uv.lock` | Dependencies (uv) |
 | `scripts/plot_pairwise_segment_distance_scatter.py` | All-pairs S/M/L p-distance scatters |
 | `scripts/plot_sliding_window_pdist.py` | Pairwise sliding-window p-distance plots |
-| `scripts/ks_sliding_window.py` | KS of window p-distances vs Uniform |
 | `scripts/ks_mutation_positions.py` | KS of mutation positions vs Uniform |
 | `results/` | Publication figures/tables (**git-tracked**) |
 | `.venv/` | Local virtualenv (gitignored; `uv sync`) |
