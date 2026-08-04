@@ -25,7 +25,7 @@ def resolve_data_dir(cli_value: Path | None) -> Path:
     env = os.environ.get("ANDV_DATA_DIR")
     if env:
         return Path(env).expanduser().resolve()
-    return (PKG_ROOT / ".." / "Alingments Piet").resolve()
+    return (PKG_ROOT / ".." / "hantavirus" / "Alingments Piet" / "analyses" / "06_v5_label_aln").resolve()
 
 
 def resolve_sample(attr: pd.DataFrame, key: str) -> pd.Series:
@@ -117,19 +117,19 @@ def main() -> None:
     outdir.mkdir(parents=True, exist_ok=True)
 
     if args.scope == "full":
-        attr = pd.read_csv(piet / "andv_attributes_joined_metadata.csv")
+        attr = pd.read_csv(piet / "metadata" / "andv_attributes_v5.csv")
         alns = {
-            seg: {r.id: str(r.seq) for r in SeqIO.parse(piet / f"{seg}_complete_aln_CURATED.fasta", "fasta")}
+            seg: {r.id: str(r.seq) for r in SeqIO.parse(piet / "alignments" / f"{seg}_v5_label_aln.fasta", "fasta")}
             for seg in "SML"
         }
     else:
         base = piet / "clade_III"
-        attr = pd.read_csv(base / "metadata" / "clade_III_attributes_joined.csv")
+        attr = pd.read_csv(base / "metadata" / "clade_III_attributes_v5.csv")
         alns = {
             seg: {
                 r.id: str(r.seq)
                 for r in SeqIO.parse(
-                    base / "alignments" / f"{seg}_cladeIII_subset_from_CURATED.fasta", "fasta"
+                    base / "alignments" / f"{seg}_cladeIII_v5.fasta", "fasta"
                 )
             }
             for seg in "SML"

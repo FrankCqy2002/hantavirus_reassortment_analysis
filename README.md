@@ -1,81 +1,166 @@
 # Hantavirus (ANDV) reassortment analysis
 
-Self-contained publication scripts for Andes virus (ANDV) segment-distance
-scatters, sliding-window p-distances, and Kolmogorov–Smirnov (KS) tests that
-probe non-uniform divergence along S/M/L segments (reassortment / mosaic signal).
+Python package to test potential reassortment in Andes virus (ANDV) using
+pairwise segment p-distance scatters, sliding-window profiles, and KS tests.
 
 ## Environment
 
+Requires [uv](https://docs.astral.sh/uv/). From this directory:
+
 ```bash
-conda env create -f environment.yml
-conda activate hantavirus_reassortment
-# or: pip install -r requirements.txt
+uv sync
+# optional: source .venv/bin/activate
+# or prefix every command with `uv run`
 ```
+
+Dependencies are in `pyproject.toml`; `uv.lock` pins versions.
 
 ## Data layout
 
-Point `--data-dir` at the **Alingments Piet** directory (or set `ANDV_DATA_DIR`).
-Default: `../Alingments Piet` next to this package. See `data/README.md`.
+Default `--data-dir` / `ANDV_DATA_DIR` for Clade III publication analyses:
 
-Outputs go under `--out-dir` (default: `results/` in this package).
+`/mnt/storage/qc2358/hantavirus/Alingments Piet/analyses/06_v5_label_aln`
+
+Expected under that directory:
+
+- `metadata/andv_attributes_v5.csv` and `alignments/{S,M,L}_v5_label_aln.fasta` (`--scope full`)
+- `clade_III/metadata/clade_III_attributes_v5.csv` and
+  `clade_III/alignments/{S,M,L}_cladeIII_v5.fasta` (`--scope cladeIII`)
+
+See `data/README.md` for details. Outputs go under `--out-dir` (defaults under
+`results/`). **Tracked publication figures and tables are already in `results/`.**
 
 ## Methods (brief)
 
-### Segment distance scatter
-For each non-reference isolate, compute pairwise distances to a reference on
-S, M, and L (observed p-distance ignoring gap/N sites; optional IQ-TREE ML
-distances from `.mldist`). Plot S–M, M–L, and S–L scatters with a y=x line.
-Points far from the diagonal indicate segment-incongruent distances.
+### Pairwise segment distance scatter
+For every tip pair, compute observed p-distance on S, M, and L (ignoring gap/N
+sites). Plot S vs M, M vs L, and S vs L. Points off the y=x diagonal have
+segment-incongruent distances (possible reassortment signal).
 
 ### Sliding-window p-distance
-Along comparable (non-gap/N) sites, slide a window (default 100 nt, step 10),
-count differences / window size, and plot the profile for S/M/L for any pair
-resolved from metadata (`--seq-a`, `--seq-b`).
+Along comparable (non-gap/N) sites, slide a window (default 100 nt, step 10)
+and plot differences / window size for S/M/L for one isolate pair.
 
 ### Sliding-window KS test
 For each `*_sliding_window_pdist.csv`, test whether window p-distances follow
 **Uniform(0, max)** (primary) or Uniform(min, max) (secondary). Larger KS *D*
-implies stronger departure from a flat window-distance profile.
+⇒ stronger departure from a flat window-distance profile.
 
 ### Mutation-position KS test
-For all tip pairs, collect 0-based coordinates of substitutions among
-comparable sites and test those positions against **Uniform(0, n_comparable)**.
-Larger *D* / smaller *p* suggests clustered mutations. Pairs are ranked by L
-segment KS *D*, requiring at least `--min-mut` L mutations (default 20).
+For all tip pairs, collect substitution coordinates among comparable sites and
+test against **Uniform(0, n_comparable)**. Larger *D* / smaller *p* ⇒ clustered
+mutations. Ranked by L-segment KS *D* (requires ≥ `--min-mut` L mutations).
 
 ## Usage
 
+Publication examples use the **06_v5_label_aln** Clade III data. Publication
+outputs (binomial scatters, sliding-window panels, KS tables, figure legends)
+are git-tracked under `results/`.
+
 ```bash
-export ANDV_DATA_DIR="/path/to/Alingments Piet"   # optional
+export ANDV_DATA_DIR="/mnt/storage/qc2358/hantavirus/Alingments Piet/analyses/06_v5_label_aln"
 
-# Distance scatters (full curated DB or Clade III)
-python scripts/plot_segment_distance_scatter.py --scope full --metric p-distance \
-  --data-dir "$ANDV_DATA_DIR" --out-dir results/segment_distance
+# Pairwise S/M/L scatters (Clade III) — underlies binomial publication panels
+# Tracked: results/segment_distance_scatter/CladeIII_pairwise_{S_vs_M,S_vs_L,M_vs_L}_binomial_publication.{png,pdf,svg}
+uv run python scripts/plot_pairwise_segment_distance_scatter.py \
+  --scope cladeIII --data-dir "$ANDV_DATA_DIR" \
+  --out-dir results/segment_distance_scatter
 
-python scripts/plot_segment_distance_scatter.py --scope cladeIII --metric ml \
-  --reference Chile-9717869 --data-dir "$ANDV_DATA_DIR" --out-dir results/segment_distance
+# Sliding window: p1236 vs p1239 (window 100, step 10)
+# Tracked: results/sliding_window/p1236_vs_p1239_sliding_window_pdist_publication.*
+uv run python scripts/plot_sliding_window_pdist.py \
+  --seq-a p1236 --seq-b p1239 \
+  --window 100 --step 10 --scope cladeIII \
+  --data-dir "$ANDV_DATA_DIR" --out-dir results/sliding_window
 
-# Sliding window for any pair
-python scripts/plot_sliding_window_pdist.py --seq-a Chile-9717869 --seq-b p1236 \
-  --window 100 --step 10 --scope full --data-dir "$ANDV_DATA_DIR" \
-  --out-dir results/sliding_window
+# Sliding window: p1059 vs NRC-4/18 (window 100, step 10)
+# Tracked: results/sliding_window/p1059_vs_NRC-4-18_sliding_window_pdist_publication.*
+uv run python scripts/plot_sliding_window_pdist.py \
+  --seq-a p1059 --seq-b "NRC-4/18" \
+  --window 100 --step 10 --scope cladeIII \
+  --data-dir "$ANDV_DATA_DIR" --out-dir results/sliding_window
 
-# KS on sliding-window CSVs
-python scripts/ks_sliding_window.py \
+# Mutation-position KS (all pairs + rank; publication pair in results/KS/)
+# Tracked: results/KS/p1236_vs_p1239_L_mutation_positions_KS.csv
+uv run python scripts/ks_mutation_positions.py \
+  --scope cladeIII --min-mut 20 \
+  --data-dir "$ANDV_DATA_DIR" --out-dir results/KS
+
+# Optional: KS on sliding-window CSVs
+uv run python scripts/ks_sliding_window.py \
   --input-dir results/sliding_window --out-dir results/tables
-
-# Mutation-position KS (all pairs + rank)
-python scripts/ks_mutation_positions.py --scope full --min-mut 20 \
-  --data-dir "$ANDV_DATA_DIR" --out-dir results/tables
 ```
+
+Also see `results/FIGURE_LEGENDS_AND_METHODS.md` for publication figure legends
+and methods text.
+
+## Parameters
+
+### Shared
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `--data-dir` | `ANDV_DATA_DIR` or `../hantavirus/Alingments Piet/analyses/06_v5_label_aln` | Root with v5 alignments and metadata |
+| `--out-dir` | script-specific under `results/` | Where PNG/PDF/CSV outputs are written |
+| `--scope` | see below | `full` = all v5 tips; `cladeIII` = Clade III subset |
+
+### `plot_pairwise_segment_distance_scatter.py`
+
+All tip pairs → S/M/L p-distances → scatter panels (no reference isolate).
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `--scope` | `cladeIII` | Tip set for pairwise comparisons |
+| `--highlight` | `p1236` | Substrings matching either tip of a pair → blue highlight (can pass several) |
+| `--exclude` | _(none)_ | Substrings of tips to drop before computing pairs |
+| `--combined-only` | off | Write only the 3-panel figure (skip per-panel S–M / M–L / S–L PNGs) |
+
+Cruise-ship pairs are always colored red; HHPC tips use diamond markers.
+Outputs: `{scope}_pairwise_segment_pdist.csv` and scatter PNG/PDF.
+Tracked binomial publication panels + lambda-test CSVs live under
+`results/segment_distance_scatter/`.
+
+### `plot_sliding_window_pdist.py`
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `--seq-a` | _(required)_ | First isolate (`sample_descriptor`, accession, or alias e.g. `cruise`) |
+| `--seq-b` | _(required)_ | Second isolate (same resolution rules) |
+| `--window` | `100` | Window length in comparable (non-gap/N) sites |
+| `--step` | `10` | Step between window starts (comparable-site units) |
+| `--scope` | `full` | Which alignment/metadata set to load |
+| `--per-segment` | off | Also write separate S, M, L single-panel figures |
+
+Outputs: `{A}_vs_{B}_sliding_window_pdist.{png,pdf,csv}` (+ optional `_*_{S,M,L}.*`).
+
+### `ks_sliding_window.py`
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `--input-dir` | _(required)_ | Directory of `*_sliding_window_pdist.csv` files |
+| `--out-dir` | `results/tables` | KS summary tables |
+
+Primary test: window p-distances ~ Uniform(0, observed max) per segment.
+Outputs: `sliding_window_KS_vs_uniform.csv` (+ `_full.csv` with extra columns).
+
+### `ks_mutation_positions.py`
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `--scope` | `full` | Tip set for all-pairs mutation KS |
+| `--min-mut` | `20` | Minimum L mutations required for a non-blank `rank_L` |
+
+Outputs: `mutation_positions_KS_vs_uniform_all_pairs.csv` and a short README txt.
 
 ## Repository contents
 
 | Path | Role |
 |------|------|
-| `scripts/plot_segment_distance_scatter.py` | S/M/L distance scatters to a reference |
+| `pyproject.toml` / `uv.lock` | Dependencies (uv) |
+| `scripts/plot_pairwise_segment_distance_scatter.py` | All-pairs S/M/L p-distance scatters |
 | `scripts/plot_sliding_window_pdist.py` | Pairwise sliding-window p-distance plots |
 | `scripts/ks_sliding_window.py` | KS of window p-distances vs Uniform |
 | `scripts/ks_mutation_positions.py` | KS of mutation positions vs Uniform |
 | `data/` | Placeholder; real inputs via `--data-dir` |
-| `results/` | Default output (gitignored) |
+| `results/` | Publication figures/tables (**git-tracked**) |
+| `.venv/` | Local virtualenv (gitignored; `uv sync`) |

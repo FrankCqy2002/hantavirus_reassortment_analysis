@@ -1,9 +1,6 @@
-results/
+.venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 data/*.fasta
 data/*.csv
-*.png
-*.pdf
-!README.md
