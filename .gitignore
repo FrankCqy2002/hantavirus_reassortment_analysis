@@ -2,5 +2,3 @@
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-results/segment_distance_scatter/*.csv
-results/sliding_window/*.csv

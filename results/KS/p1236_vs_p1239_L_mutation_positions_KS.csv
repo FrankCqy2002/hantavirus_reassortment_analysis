@@ -1,2 +1,0 @@
-segment,seq_a,seq_b,alignment,n_mut,n_comparable,p_distance,ks_D,ks_p,H0
-L,PZ568904.2_p1236,PX111620_p1239,L_cladeIII_v5.fasta,94,4532,0.020741394527802295,0.1824003305102252,0.003291768871210146,"mutation positions ~ Uniform(0, n_comparable) along comparable sites"

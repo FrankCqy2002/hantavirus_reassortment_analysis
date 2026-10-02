@@ -96,6 +96,55 @@ def slug(label: str) -> str:
     return re.sub(r"[^\w.\-]+", "-", label).strip("-")
 
 
+def overall_pdist(seq_a: str, seq_b: str) -> float:
+    a, b = seq_a.upper(), seq_b.upper()
+    valid = diffs = 0
+    for x, y in zip(a, b):
+        if x in "-N" or y in "-N":
+            continue
+        valid += 1
+        if x != y:
+            diffs += 1
+    if valid == 0:
+        return float("nan")
+    return diffs / valid
+
+
+def plot_publication(fig_path: Path, lab_a: str, lab_b: str, panels: list[tuple[str, pd.DataFrame, float]]) -> None:
+    """Three stacked panels matching results/sliding_window publication PNGs."""
+    plt.rcParams["font.family"] = "Arial"
+    fig, axes = plt.subplots(3, 1, figsize=(3.53, 2.61), sharex=False)
+    ymax = max(float(df.p_distance.max()) for _, df, _ in panels)
+    ylim = max(0.08, ymax * 1.15)
+    for ax, (seg, df, overall) in zip(axes, panels):
+        color = COLORS[seg]
+        ax.fill_between(df.aln_mid, df.p_distance, color=color, alpha=0.12, linewidth=0)
+        ax.plot(df.aln_mid, df.p_distance, color=color, lw=1.0, solid_capstyle="butt")
+        ax.axhline(overall, color="#888888", ls="--", lw=0.7)
+        ax.set_ylim(0, ylim)
+        ax.set_yticks([0.0, 0.05] if ylim <= 0.10 else [0.0, 0.05, 0.10])
+        ax.tick_params(axis="both", labelsize=8)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.text(
+            0.02,
+            0.90,
+            f"{seg} segment (dist = {overall:.4f})",
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=8,
+        )
+    axes[0].set_title(f"{lab_a} vs {lab_b}", fontsize=9, pad=2)
+    axes[1].set_ylabel("p-distance", fontsize=10)
+    axes[2].set_xlabel("Alignment position (window midpoint)", fontsize=10)
+    fig.tight_layout(pad=0.35)
+    fig.savefig(fig_path, dpi=300, bbox_inches="tight", pad_inches=0.02)
+    if fig_path.suffix.lower() == ".png":
+        fig.savefig(fig_path.with_suffix(".svg"), bbox_inches="tight", pad_inches=0.02)
+    plt.close(fig)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--seq-a", required=True, help="Sample descriptor / alias for sequence A")
@@ -109,6 +158,11 @@ def main() -> None:
         "--per-segment",
         action="store_true",
         help="Also write single-segment PNG/PDF panels",
+    )
+    ap.add_argument(
+        "--publication",
+        action="store_true",
+        help="Write the stacked publication panel used in results/sliding_window",
     )
     args = ap.parse_args()
 
@@ -142,13 +196,19 @@ def main() -> None:
     print(f"B: {lab_b} clade={rb.get('andv_clade', '')} tips={{S:{rb['meta_S']}, M:{rb['meta_M']}, L:{rb['meta_L']}}}")
 
     all_rows = []
+    overalls: dict[str, float] = {}
     fig, axes = plt.subplots(3, 1, figsize=(12, 9))
     for ax, seg in zip(axes, ("S", "M", "L")):
         tip_a, tip_b = ra[f"meta_{seg}"], rb[f"meta_{seg}"]
         if tip_a not in alns[seg] or tip_b not in alns[seg]:
             raise SystemExit(f"Missing tip(s) in {seg} alignment: {tip_a!r}, {tip_b!r}")
         df = window_pdists(alns[seg][tip_a], alns[seg][tip_b], args.window, args.step)
+        overalls[seg] = overall_pdist(alns[seg][tip_a], alns[seg][tip_b])
         df.insert(0, "segment", seg)
+        if args.publication:
+            df.insert(1, "seq_a", lab_a)
+            df.insert(2, "seq_b", lab_b)
+            df.insert(3, "overall_p_distance", overalls[seg])
         all_rows.append(df)
         mean, mx = df.p_distance.mean(), df.p_distance.max()
         print(f"  {seg}: mean={mean:.4f}, max={mx:.4f}, windows={len(df)}")
@@ -179,17 +239,27 @@ def main() -> None:
             plt.close(fig_s)
 
     stem = f"{slug(lab_a)}_vs_{slug(lab_b)}_sliding_window_pdist"
-    clade_a = ra.get("andv_clade", "")
-    clade_b = rb.get("andv_clade", "")
-    fig.suptitle(
-        f"Sliding-window p-distance: {lab_a} (Clade {clade_a}) vs {lab_b} (Clade {clade_b})  "
-        f"({args.window} bp, step {args.step})",
-        fontsize=12,
-        y=1.01,
-    )
-    fig.tight_layout()
-    fig.savefig(outdir / f"{stem}.png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
+    if args.publication:
+        stem = f"{stem}_publication"
+        plt.close(fig)
+        plot_publication(
+            outdir / f"{stem}.png",
+            lab_a,
+            lab_b,
+            [(seg, df, overalls[seg]) for seg, df in zip(("S", "M", "L"), all_rows)],
+        )
+    else:
+        clade_a = ra.get("andv_clade", "")
+        clade_b = rb.get("andv_clade", "")
+        fig.suptitle(
+            f"Sliding-window p-distance: {lab_a} (Clade {clade_a}) vs {lab_b} (Clade {clade_b})  "
+            f"({args.window} bp, step {args.step})",
+            fontsize=12,
+            y=1.01,
+        )
+        fig.tight_layout()
+        fig.savefig(outdir / f"{stem}.png", dpi=300, bbox_inches="tight")
+        plt.close(fig)
     pd.concat(all_rows, ignore_index=True).to_csv(outdir / f"{stem}.csv", index=False)
     print(f"Wrote {outdir / stem}.png / .csv")
 

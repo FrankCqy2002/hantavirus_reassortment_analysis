@@ -208,20 +208,27 @@ def binomial_test_panel(
     mu_min: float,
     fdr_alpha: float,
 ) -> pd.DataFrame:
-    """Fit λ on all pairs with Tπ > mu_min; test each pair; return enriched table."""
+    """Fit λ on pairs with Tπ > mu_min; test each pair; return enriched table.
+
+    Rows with exclude_from_lambda_fit=True are omitted from the λ fit and still tested.
+    """
     mx, my = f"mut_{xseg}", f"mut_{yseg}"
     nx, ny = f"n_{xseg}", f"n_{yseg}"
     px, py = f"p_{xseg}", f"p_{yseg}"
+    if "exclude_from_lambda_fit" in df.columns:
+        eligible = df.loc[~df["exclude_from_lambda_fit"].astype(bool)]
+    else:
+        eligible = df
 
-    lam0 = ols_lambda(df[px], df[py])
-    mu0 = mu_tpi(lam0, df[mx], df[my], df[nx], df[ny])
-    fit0 = df.loc[mu0 > mu_min]
+    lam0 = ols_lambda(eligible[px], eligible[py])
+    mu0 = pd.Series(mu_tpi(lam0, df[mx], df[my], df[nx], df[ny]), index=df.index)
+    fit0 = eligible.loc[mu0.loc[eligible.index] > mu_min]
     if fit0.empty:
         raise SystemExit(f"No pairs with Tπ>{mu_min:g} for preliminary λ fit ({xseg} vs {yseg})")
 
     lam, _ = binom_mle_lambda(fit0[mx], fit0[my], fit0[nx], fit0[ny])
-    mu1 = mu_tpi(lam, df[mx], df[my], df[nx], df[ny])
-    fit = df.loc[mu1 > mu_min]
+    mu1 = pd.Series(mu_tpi(lam, df[mx], df[my], df[nx], df[ny]), index=df.index)
+    fit = eligible.loc[mu1.loc[eligible.index] > mu_min]
     lam, _ = binom_mle_lambda(fit[mx], fit[my], fit[nx], fit[ny])
     lam_ols = ols_lambda(fit[px], fit[py])
     n_fit = int(len(fit))
@@ -243,34 +250,38 @@ def binomial_test_panel(
             z = np.nan
             pval = 1.0
         used = np.isfinite(mu) and mu > mu_min
-        rows.append(
-            {
-                "seq_a": r["seq_a"],
-                "seq_b": r["seq_b"],
-                "descriptor_a": r["descriptor_a"],
-                "descriptor_b": r["descriptor_b"],
-                "hhpc_a": r["hhpc_a"],
-                "hhpc_b": r["hhpc_b"],
-                px: r[px],
-                py: r[py],
-                mx: y_x,
-                my: y_y,
-                nx: e_x,
-                ny: e_y,
-                "T": t,
-                "pi": pi,
-                "involves_p1236": bool(r["involves_p1236"]),
-                "involves_cruise": bool(r["involves_cruise"]),
-                "lambda": lam,
-                "lambda_ols_ref": lam_ols,
-                "mu_Y": mu,
-                "testable_mu_gt_threshold": bool(used),
-                "testable_mu_gt_20": bool(used),  # legacy column name
-                "used_in_lambda_fit": bool(used),
-                "z_binomial": z,
-                "pvalue_raw": pval,
-            }
-        )
+        excluded_fit = bool(r["exclude_from_lambda_fit"]) if "exclude_from_lambda_fit" in r.index else False
+        row = {
+            "seq_a": r["seq_a"],
+            "seq_b": r["seq_b"],
+            "descriptor_a": r["descriptor_a"],
+            "descriptor_b": r["descriptor_b"],
+            "clade_a": r.get("clade_a", ""),
+            "clade_b": r.get("clade_b", ""),
+            "hhpc_a": r["hhpc_a"],
+            "hhpc_b": r["hhpc_b"],
+            px: r[px],
+            py: r[py],
+            mx: y_x,
+            my: y_y,
+            nx: e_x,
+            ny: e_y,
+            "T": t,
+            "pi": pi,
+            "involves_p1236": bool(r["involves_p1236"]),
+            "involves_cruise": bool(r["involves_cruise"]),
+            "lambda": lam,
+            "lambda_ols_ref": lam_ols,
+            "mu_Y": mu,
+            "testable_mu_gt_threshold": bool(used),
+            "testable_mu_gt_20": bool(used),  # legacy column name
+            "used_in_lambda_fit": bool(used and not excluded_fit),
+            "z_binomial": z,
+            "pvalue_raw": pval,
+        }
+        if "exclude_from_plot" in r.index:
+            row["exclude_from_plot"] = bool(r["exclude_from_plot"])
+        rows.append(row)
     out = pd.DataFrame(rows)
 
     out["pvalue"] = np.nan
@@ -304,20 +315,38 @@ def plot_binomial_publication(
     mu_min: float,
     fdr_alpha: float,
 ) -> None:
-    """Publication-style panel: grey points, red BH-significant, y=λx."""
+    """Publication-style panel: grey points, red BH-significant, y=λx.
+
+    Rows with exclude_from_plot=True stay in the BH test but are not drawn.
+    Axis limits use the plotted points only.
+    """
     plot = out[out["mu_Y"] > mu_min].copy()
+    if "exclude_from_plot" in plot.columns:
+        plot = plot.loc[~plot["exclude_from_plot"].astype(bool)].copy()
     if plot.empty:
         print(f"Skip plot {xseg} vs {yseg}: no pairs with Tπ>{mu_min:g}")
         return
 
     lam = float(plot["lambda"].iloc[0])
     color_other = "#B0B0B0"
-    color_sig = "#C0392B"
+    color_iii = "#1F4E79"
     color_line = "#1a1a1a"
+    if "clade_a" in plot.columns:
+        both_iii = plot["clade_a"].astype(str).eq("III") & plot["clade_b"].astype(str).eq("III")
+    else:
+        both_iii = pd.Series(False, index=plot.index)
+    # Only call out Clade III when the panel also contains other pairs.
+    mark_iii = bool(both_iii.any() and (~both_iii).any())
+    if not mark_iii:
+        both_iii = pd.Series(False, index=plot.index)
 
-    fig, ax = plt.subplots(figsize=(2.5, 2.5))
-    ns = plot[~plot["sig_0.05"]]
-    sig = plot[plot["sig_0.05"]]
+    # Match the version-06 publication panels: Arial, 8 pt ticks, 10 pt axis labels.
+    # A black edge marks BH significance; fill color is not used for that.
+    plt.rcParams["font.family"] = "Arial"
+    fig, ax = plt.subplots(figsize=(2.52, 2.52))
+    ns = plot[~plot["sig_0.05"] & ~both_iii]
+    sig = plot[plot["sig_0.05"] & ~both_iii]
+    iii = plot[both_iii]
     ax.scatter(
         ns[f"p_{xseg}"],
         ns[f"p_{yseg}"],
@@ -332,11 +361,34 @@ def plot_binomial_publication(
             sig[f"p_{xseg}"],
             sig[f"p_{yseg}"],
             s=22,
-            c=color_sig,
+            c=color_other,
             edgecolors="black",
             linewidths=0.7,
             zorder=5,
         )
+    if len(iii):
+        iii_ns = iii[~iii["sig_0.05"]]
+        iii_sig = iii[iii["sig_0.05"]]
+        if len(iii_ns):
+            ax.scatter(
+                iii_ns[f"p_{xseg}"],
+                iii_ns[f"p_{yseg}"],
+                s=16,
+                c=color_iii,
+                alpha=0.9,
+                linewidths=0,
+                zorder=4,
+            )
+        if len(iii_sig):
+            ax.scatter(
+                iii_sig[f"p_{xseg}"],
+                iii_sig[f"p_{yseg}"],
+                s=22,
+                c=color_iii,
+                edgecolors="black",
+                linewidths=0.7,
+                zorder=6,
+            )
 
     xmax = float(np.nanmax(plot[f"p_{xseg}"]))
     ymax = float(np.nanmax(plot[f"p_{yseg}"]))
@@ -345,10 +397,11 @@ def plot_binomial_publication(
     xs = np.linspace(0, lim_x, 200)
     ax.plot(xs, lam * xs, color=color_line, lw=1.1, ls="--", zorder=3)
 
-    ax.set_xlabel(AXIS_LABELS[xseg])
-    ax.set_ylabel(AXIS_LABELS[yseg])
+    ax.set_xlabel(AXIS_LABELS[xseg], fontsize=10)
+    ax.set_ylabel(AXIS_LABELS[yseg], fontsize=10)
     ax.set_xlim(0, lim_x)
     ax.set_ylim(0, lim_y)
+    ax.tick_params(axis="both", labelsize=8)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
@@ -362,24 +415,41 @@ def plot_binomial_publication(
         fontsize=9,
         color=color_line,
     )
-    if plot["sig_0.05"].any():
-        handles = [
+    handles = []
+    if mark_iii:
+        handles.append(
             Line2D(
                 [0],
                 [0],
                 marker="o",
                 color="w",
-                markerfacecolor=color_sig,
+                markerfacecolor=color_iii,
+                markeredgecolor="none",
+                markersize=6,
+                label="Clade III",
+            )
+        )
+    if plot["sig_0.05"].any():
+        handles.append(
+            Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=color_other,
                 markeredgecolor="black",
                 markersize=7,
                 markeredgewidth=0.9,
                 label=f"BH q < {fdr_alpha:g}",
             )
-        ]
+        )
+    if handles:
         ax.legend(handles=handles, frameon=False, loc="upper left", fontsize=8)
 
     fig.tight_layout(pad=0.3)
-    fig.savefig(outfile, dpi=300, bbox_inches="tight")
+    fig.savefig(outfile, dpi=300)
+    if outfile.suffix.lower() == ".png":
+        fig.savefig(outfile.with_suffix(".svg"))
     plt.close(fig)
     print(f"Wrote {outfile} (n={len(plot)}, n_sig={int(plot['sig_0.05'].sum())})")
 
@@ -411,6 +481,18 @@ def main() -> None:
         help="Sample substrings to drop before pairwise comparisons",
     )
     ap.add_argument(
+        "--fit-exclude",
+        nargs="*",
+        default=[],
+        help="Sample substrings omitted from the λ fit but kept in testing and plots",
+    )
+    ap.add_argument(
+        "--plot-exclude",
+        nargs="*",
+        default=[],
+        help="Sample substrings omitted from the scatter only; they stay in the λ fit unless also passed to --fit-exclude, and they stay in the BH test",
+    )
+    ap.add_argument(
         "--mu-min",
         type=float,
         default=20.0,
@@ -436,6 +518,28 @@ def main() -> None:
             print(f"Excluded {len(drop)} tip(s): {sorted(drop)}")
 
     pairs = annotate_involves(compute_pairs(meta, alignments))
+    if args.fit_exclude:
+        fit_drop = resolve_keys(meta, args.fit_exclude)
+        if not fit_drop:
+            raise SystemExit(f"--fit-exclude matched no tips: {args.fit_exclude}")
+        pairs["exclude_from_lambda_fit"] = pairs["descriptor_a"].astype(str).isin(fit_drop) | pairs[
+            "descriptor_b"
+        ].astype(str).isin(fit_drop)
+        print(
+            f"λ fit excludes {len(fit_drop)} tip(s): {sorted(fit_drop)} "
+            f"({int(pairs['exclude_from_lambda_fit'].sum())} pairs)"
+        )
+    if args.plot_exclude:
+        plot_drop = resolve_keys(meta, args.plot_exclude)
+        if not plot_drop:
+            raise SystemExit(f"--plot-exclude matched no tips: {args.plot_exclude}")
+        pairs["exclude_from_plot"] = pairs["descriptor_a"].astype(str).isin(plot_drop) | pairs[
+            "descriptor_b"
+        ].astype(str).isin(plot_drop)
+        print(
+            f"Scatter omits {len(plot_drop)} tip(s): {sorted(plot_drop)} "
+            f"({int(pairs['exclude_from_plot'].sum())} pairs)"
+        )
     stem_prefix = "CURATED" if args.scope == "full" else "CladeIII"
     csv_path = out_dir / f"{stem_prefix}_pairwise_segment_pdist.csv"
     pairs.to_csv(csv_path, index=False)
